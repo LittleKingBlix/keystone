@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Keystone">
+  <meta name="theme-color" content="#f4ead5">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Keystone</title>
+</head>
+<body>
+  <div id="app">
+
+    <section id="view-today" class="view active">
+      <header class="day-header">
+        <div class="streak-counter">
+          <div class="streak-label">Day</div>
+          <div class="streak-number" id="streak-number">1</div>
+        </div>
+        <div class="date-stack">
+          <div class="date-day-of-week" id="today-day"></div>
+          <div class="date-month-day" id="today-date"></div>
+        </div>
+      </header>
+      <ul class="habits" id="habits-list"></ul>
+      <div class="rules-link">
+        <a href="#" id="open-rules">View rules</a>
+      </div>
+    </section>
+
+    <section id="view-month" class="view">
+      <header class="month-header">
+        <button id="prev-month" class="month-nav" aria-label="Previous month">&#8592;</button>
+        <h2 id="month-title">Month</h2>
+        <button id="next-month" class="month-nav" aria-label="Next month">&#8594;</button>
+      </header>
+      <div class="weekday-row">
+        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+        <span>Thu</span><span>Fri</span><span>Sat</span>
+      </div>
+      <div class="month-grid" id="month-grid"></div>
+      <div class="month-legend">
+        <span><span class="legend-mark compliant"></span>All 8 done</span>
+        <span><span class="legend-mark partial"></span>Partial</span>
+        <span><span class="legend-mark today"></span>Today</span>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view">
+      <h2 class="settings-title">Settings</h2>
+      <div class="setting">
+        <label for="start-date">Start date</label>
+        <input type="date" id="start-date">
+      </div>
+      <div class="setting">
+        <label for="day-boundary">Day cutoff</label>
+        <select id="day-boundary">
+          <option value="0">Midnight (strict)</option>
+          <option value="4" selected>4 AM (forgiving)</option>
+        </select>
+        <p class="setting-help">Late-night check-offs before this hour count toward the previous day.</p>
+      </div>
+      <div class="setting">
+        <label>Data</label>
+        <button id="export-data">Export</button>
+        <button id="import-data">Import</button>
+      </div>
+      <div class="setting">
+        <label>Rules</label>
+        <pre id="rules-display">Loading rules.md...</pre>
+      </div>
+      <div class="setting">
+        <label>Danger</label>
+        <button id="reset-program" class="danger">Reset program</button>
+      </div>
+      <div class="setting setting-meta">
+        <small>Keystone &middot; v0.1 &middot; localStorage only</small>
+      </div>
+    </section>
+
+    <nav class="tab-bar">
+      <button class="tab active" data-view="today">Today</button>
+      <button class="tab" data-view="month">Month</button>
+      <button class="tab" data-view="settings">Settings</button>
+    </nav>
+
+  </div>
+
+  <script src="streak.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

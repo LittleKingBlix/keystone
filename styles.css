@@ -1,0 +1,547 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Special+Elite&family=Crimson+Pro:wght@400;500;600&display=swap');
+
+:root {
+  --paper: #f4ead5;
+  --paper-shade: #ebe0c5;
+  --paper-bright: #faf3e0;
+  --ink: #2a2620;
+  --ink-light: #6a6055;
+  --red-mark: #b34a3c;
+  --line: rgba(42, 38, 32, 0.18);
+  --line-dark: rgba(42, 38, 32, 0.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Crimson Pro', Georgia, serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image:
+    radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,0.018) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 1px;
+  min-height: 100dvh;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding-bottom: 96px;
+  position: relative;
+}
+
+.view { display: none; padding: 24px 20px; }
+.view.active { display: block; }
+
+/* TODAY VIEW */
+
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.streak-counter { display: flex; flex-direction: column; }
+
+.streak-label {
+  font-family: 'Special Elite', monospace;
+  font-size: 13px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 2px;
+}
+
+.streak-number {
+  font-family: 'Caveat', cursive;
+  font-size: 84px;
+  line-height: 0.85;
+  color: var(--ink);
+  font-weight: 700;
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
+.date-stack { text-align: right; }
+
+.date-day-of-week {
+  font-family: 'Special Elite', monospace;
+  font-size: 12px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 4px;
+}
+
+.date-month-day {
+  font-family: 'Caveat', cursive;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.habits { list-style: none; }
+
+.habit {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 6px;
+  border-bottom: 1px dashed var(--line-dark);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.1s;
+}
+
+.habit:active { background: rgba(0,0,0,0.04); }
+
+.habit-checkbox {
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.35);
+  position: relative;
+}
+
+.habit.done .habit-checkbox::after {
+  content: "X";
+  font-family: 'Caveat', cursive;
+  font-size: 42px;
+  color: var(--ink);
+  line-height: 0.7;
+  font-weight: 700;
+  transform: rotate(-12deg);
+  position: absolute;
+  top: -4px;
+  left: 4px;
+}
+
+.habit-label {
+  font-size: 19px;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-weight: 500;
+}
+
+.habit.done .habit-label {
+  color: var(--ink-light);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.habit-input {
+  font-family: 'Caveat', cursive;
+  font-size: 24px;
+  font-weight: 700;
+  width: 70px;
+  border: none;
+  border-bottom: 1px solid var(--line-dark);
+  background: transparent;
+  text-align: center;
+  color: var(--ink);
+  margin-left: auto;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.habit-input:focus { outline: none; border-bottom-color: var(--ink); }
+
+.rules-link {
+  margin-top: 32px;
+  text-align: center;
+  font-family: 'Special Elite', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.rules-link a {
+  color: var(--ink-light);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 4px;
+}
+
+/* MONTH VIEW */
+
+.month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.month-header h2 {
+  font-family: 'Caveat', cursive;
+  font-size: 38px;
+  font-weight: 700;
+  text-align: center;
+  flex: 1;
+}
+
+.month-nav {
+  background: transparent;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  cursor: pointer;
+  font-family: 'Crimson Pro', serif;
+  color: var(--ink);
+}
+
+.month-nav:active { background: rgba(0,0,0,0.06); }
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  font-family: 'Special Elite', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 8px 0;
+  color: var(--ink-light);
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--ink);
+}
+
+.day-cell {
+  aspect-ratio: 1 / 1;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 4px 6px;
+  position: relative;
+  font-family: 'Crimson Pro', serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.day-cell.outside-month { color: rgba(42,38,32,0.25); }
+.day-cell.today {
+  background: var(--paper-bright);
+  font-weight: 700;
+}
+.day-cell.today::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--red-mark);
+  border-radius: 50%;
+}
+
+.day-cell .day-num { position: relative; z-index: 2; }
+
+.day-cell.compliant::after {
+  content: "X";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 56px;
+  color: var(--ink);
+  font-weight: 700;
+  transform: rotate(-8deg);
+  pointer-events: none;
+  line-height: 1;
+  z-index: 1;
+}
+
+.day-cell.partial::after {
+  content: "/";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 50px;
+  color: rgba(42,38,32,0.45);
+  font-weight: 600;
+  transform: rotate(20deg);
+  pointer-events: none;
+  line-height: 1;
+  z-index: 1;
+}
+
+.month-legend {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 18px;
+  font-family: 'Special Elite', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+.month-legend span { display: flex; align-items: center; gap: 6px; }
+
+.legend-mark {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-dark);
+  display: inline-block;
+  position: relative;
+}
+.legend-mark.compliant::after {
+  content: "X";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  transform: rotate(-8deg);
+}
+.legend-mark.partial::after {
+  content: "/";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink-light);
+  transform: rotate(20deg);
+}
+.legend-mark.today { background: var(--paper-bright); }
+
+/* DAY DETAIL MODAL (simple in-place for past days) */
+
+.day-detail {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 38, 32, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.day-detail-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 24px;
+  max-width: 360px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.day-detail-card h3 {
+  font-family: 'Caveat', cursive;
+  font-size: 32px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line-dark);
+  padding-bottom: 8px;
+}
+
+.day-detail-card .day-detail-list {
+  list-style: none;
+}
+
+.day-detail-card .day-detail-list li {
+  padding: 8px 0;
+  font-family: 'Crimson Pro', serif;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.day-detail-card .check-mark {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  font-size: 26px;
+  width: 22px;
+  display: inline-block;
+  text-align: center;
+}
+
+.day-detail-card .check-mark.done { color: var(--ink); }
+.day-detail-card .check-mark.miss { color: rgba(42,38,32,0.25); }
+
+.day-detail-close {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--ink);
+  font-family: 'Special Elite', monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+/* SETTINGS VIEW */
+
+.settings-title {
+  font-family: 'Caveat', cursive;
+  font-size: 42px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 8px;
+}
+
+.setting {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--line-dark);
+}
+
+.setting label {
+  display: block;
+  font-family: 'Special Elite', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  margin-bottom: 10px;
+}
+
+.setting input[type="date"],
+.setting select {
+  font-family: 'Crimson Pro', serif;
+  font-size: 17px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink);
+  background: var(--paper-bright);
+  border-radius: 2px;
+  color: var(--ink);
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.setting-help {
+  font-size: 13px;
+  color: var(--ink-light);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.setting button {
+  font-family: 'Special Elite', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.setting button:active { background: rgba(0,0,0,0.06); }
+
+.setting button.danger { border-color: var(--red-mark); color: var(--red-mark); }
+
+#rules-display {
+  font-family: 'Special Elite', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--paper-bright);
+  padding: 14px;
+  border: 1px solid var(--line-dark);
+  border-radius: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  color: var(--ink);
+}
+
+.setting-meta {
+  border-bottom: none;
+  text-align: center;
+}
+
+.setting-meta small {
+  font-family: 'Special Elite', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--ink-light);
+}
+
+/* TAB BAR */
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  background: var(--paper-shade);
+  border-top: 2px solid var(--ink);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 50;
+}
+
+.tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 16px 0 14px 0;
+  font-family: 'Special Elite', monospace;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  cursor: pointer;
+}
+
+.tab.active { color: var(--ink); }
+.tab.active::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 2px;
+  background: var(--ink);
+  margin: 5px auto 0;
+}
