@@ -54,19 +54,47 @@ Use Settings > Export to save a JSON file. Use Import to restore. localStorage o
 
 The same habit missed on two consecutive completed days resets the streak. Different habits missed on consecutive days do not reset. Today is in progress and never counts as a miss for reset detection. The day boundary is configurable (midnight strict or 4 AM forgiving).
 
+## Deploy options
+
+Pick one. All are free for a personal app.
+
+### Cloudflare Pages (recommended, fastest)
+
+```bash
+cd ~/Projects/keystone
+npx wrangler pages deploy . --project-name=keystone
+```
+
+First run prompts for Cloudflare login. After that, deploys take ~10 seconds. URL printed at the end.
+
+### Netlify Drop (no CLI)
+
+1. Open https://app.netlify.com/drop in a browser.
+2. Drag the `~/Projects/keystone/` folder onto the page.
+3. Done. URL printed immediately. Drag again to update.
+
+### GitHub Pages (most setup, best long-term)
+
+```bash
+cd ~/Projects/keystone
+gh repo create keystone --private --source=. --push
+gh api -X POST /repos/:owner/keystone/pages -f source.branch=main -f source.path=/
+```
+
+URL: `https://<your-github-user>.github.io/keystone/`. Takes ~2 minutes for first deploy.
+
 ## Phase status
 
 - [x] Phase 1: Skeleton, today view, localStorage
-- [x] Phase 2: Streak engine
+- [x] Phase 2: Streak engine (14 tests passing)
 - [x] Phase 3: Calendar view
-- [x] Phase 4: Paper aesthetic (first pass)
-- [ ] Phase 5: Service worker, real PWA install, custom icon PNGs
-- [ ] Phase 6: Live testing and friction fixes
+- [x] Phase 4: Paper aesthetic
+- [x] Phase 5: Service worker + custom icon PNGs
+- [ ] Phase 6: Live testing and friction fixes (you, on iPhone, after deploy)
 
 ## Open items
 
-- [ ] Write final `rules.md` (you, before day 1)
+- [ ] Write your final `rules.md` (the "EDIT THIS" sections in compliant meal and social food)
 - [ ] Decide program length (open-ended vs fixed)
-- [ ] Generate and add `icon-180.png`, `icon-512.png`, `icon-1024.png`
-- [ ] Add `service-worker.js` for offline caching
-- [ ] Test Add to Home Screen flow on actual iPhone
+- [ ] Pick a deploy target and run the command
+- [ ] Add to Home Screen on iPhone, run for a week, report friction
