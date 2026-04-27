@@ -17,6 +17,9 @@ PAPER = (244, 234, 213)
 PAPER_SHADE = (235, 224, 197)
 INK = (42, 38, 32)
 INK_SHADOW = (60, 52, 42)
+MARKER_RED = (200, 51, 44)
+MARKER_RED_DEEP = (165, 34, 28)
+MARKER_RED_BLEED = (215, 80, 70)
 
 SIZES = [180, 192, 512, 1024]
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
@@ -59,37 +62,39 @@ def make_icon(size):
         outline=INK, width=border_w
     )
 
-    # Big X on a transparent layer so we can rotate it cleanly
+    # Fat red marker X. Single solid stroke + soft bleed halo, slightly
+    # tilted, slight blur. No internal stripes; one chunky red mark.
     x_layer = Image.new('RGBA', (s, s), (0, 0, 0, 0))
     draw_x = ImageDraw.Draw(x_layer)
-    pad = int(s * 0.22)
-    stroke_w = max(8, s // 14)
+    pad = int(s * 0.20)
+    stroke_w = max(14, s // 9)  # fat
 
-    # Subtle "shadow" under the stroke for depth
-    shadow_offset = max(2, s // 400)
-    draw_x.line(
-        [(pad + shadow_offset, pad + shadow_offset),
-         (s - pad + shadow_offset, s - pad + shadow_offset)],
-        fill=INK_SHADOW + (90,), width=stroke_w
-    )
-    draw_x.line(
-        [(s - pad + shadow_offset, pad + shadow_offset),
-         (pad + shadow_offset, s - pad + shadow_offset)],
-        fill=INK_SHADOW + (90,), width=stroke_w
-    )
-
-    # Main strokes
+    # Soft bleed halo (slightly wider, translucent, lighter red)
+    bleed_w = stroke_w + max(6, s // 60)
     draw_x.line(
         [(pad, pad), (s - pad, s - pad)],
-        fill=INK + (255,), width=stroke_w
+        fill=MARKER_RED_BLEED + (80,), width=bleed_w
     )
     draw_x.line(
         [(s - pad, pad), (pad, s - pad)],
-        fill=INK + (255,), width=stroke_w
+        fill=MARKER_RED_BLEED + (80,), width=bleed_w
     )
 
-    # Slight rotation for a hand-drawn marker feel
-    x_layer = x_layer.rotate(-8, resample=Image.BICUBIC)
+    # Main solid stroke
+    draw_x.line(
+        [(pad, pad), (s - pad, s - pad)],
+        fill=MARKER_RED + (255,), width=stroke_w
+    )
+    draw_x.line(
+        [(s - pad, pad), (pad, s - pad)],
+        fill=MARKER_RED + (255,), width=stroke_w
+    )
+
+    # Slight rotation for a hand-drawn feel
+    x_layer = x_layer.rotate(-10, resample=Image.BICUBIC)
+
+    # Soften edges (marker bleed into paper)
+    x_layer = x_layer.filter(ImageFilter.GaussianBlur(radius=max(2, s // 500)))
 
     bg.paste(x_layer, (0, 0), x_layer)
 
