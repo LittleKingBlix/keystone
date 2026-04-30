@@ -1,32 +1,30 @@
 """
-Generate iPhone home-screen icons for Keystone.
-Run from project root: /tmp/keystone-venv/bin/python scripts/make_icons.py
-Output: icon-180.png, icon-192.png, icon-512.png, icon-1024.png
+Generate iPhone home-screen icons for Keystone, Direction F (Riso/magazine).
+Run from project root:
+  /tmp/keystone-venv/bin/python scripts/make_icons.py
 
-Design: cream paper background, subtle grain, off-center bold X mark
-in marker style (slight tilt, varying stroke width). Tied to the calendar
-cell X used inside the app.
+Design: cream paper background, big Archivo Black "K·" centered (with the
+mid-dot in red), red color-check bar across the bottom. Echoes the magazine
+masthead and color-check bar that anchor the in-app design.
 """
 
-from PIL import Image, ImageDraw, ImageFilter
-import random
+from PIL import Image, ImageDraw, ImageFont
 import os
-import sys
+import random
 
-PAPER = (244, 234, 213)
-PAPER_SHADE = (235, 224, 197)
-INK = (42, 38, 32)
-INK_SHADOW = (60, 52, 42)
-MARKER_RED = (200, 51, 44)
-MARKER_RED_DEEP = (165, 34, 28)
-MARKER_RED_BLEED = (215, 80, 70)
+PAPER = (244, 238, 224)
+INK = (10, 10, 10)
+RED = (230, 58, 38)
+BLUE = (42, 78, 196)
+
+FONT_PATH = '/tmp/ArchivoBlack-Regular.ttf'
 
 SIZES = [180, 192, 512, 1024]
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 
-def add_paper_grain(img, intensity=12, density_div=30):
-    random.seed(42)
+def add_paper_grain(img, intensity=10, density_div=40):
+    random.seed(7)
     w, h = img.size
     px = img.load()
     for _ in range(w * h // density_div):
@@ -38,76 +36,71 @@ def add_paper_grain(img, intensity=12, density_div=30):
 
 
 def make_icon(size):
-    # Render at 4x supersample for clean edges, then downsample.
-    SS = 4
-    s = size * SS
+    img = Image.new('RGB', (size, size), PAPER)
+    draw = ImageDraw.Draw(img)
 
-    bg = Image.new('RGB', (s, s), PAPER)
+    # Layout
+    bar_h = max(6, size // 16)         # bottom red color-check bar
+    pad = max(8, size // 40)           # outer padding
+    rule_y = pad + max(2, size // 200) * 4  # thin top rule like a masthead
 
-    # Paper grain at native resolution after downsample, so do it on a final-size pass.
-    # For now, draw shapes on the supersampled canvas.
+    # Top rule (ink hairline)
+    draw.rectangle([pad, rule_y, size - pad, rule_y + max(2, size // 200)], fill=INK)
 
-    draw = ImageDraw.Draw(bg)
+    # Big "K" in Archivo Black, centered above the bar
+    target_h = size - bar_h - pad - rule_y - pad
+    font_size = int(target_h * 0.95)
+    font = ImageFont.truetype(FONT_PATH, font_size)
 
-    # Subtle inner border, like a calendar cell edge
-    border_inset = int(s * 0.08)
-    border_w = max(2, s // 250)
-    draw.rectangle(
-        [border_inset, border_inset, s - border_inset, s - border_inset],
-        outline=PAPER_SHADE, width=border_w * 2
+    # Compose "K·" — K in ink, dot in red, side by side
+    k_text = "K"
+    dot_text = "·"
+
+    k_bbox = draw.textbbox((0, 0), k_text, font=font)
+    d_bbox = draw.textbbox((0, 0), dot_text, font=font)
+    k_w = k_bbox[2] - k_bbox[0]
+    k_h = k_bbox[3] - k_bbox[1]
+    d_w = d_bbox[2] - d_bbox[0]
+    d_h = d_bbox[3] - d_bbox[1]
+
+    gap = max(2, size // 60)
+    total_w = k_w + gap + d_w
+    start_x = (size - total_w) // 2 - k_bbox[0]
+    base_y = rule_y + (target_h - k_h) // 2 - k_bbox[1] + pad // 2
+
+    draw.text((start_x, base_y), k_text, font=font, fill=INK)
+    # Dot positioned at K's baseline, slightly raised (like a typographic mid-dot)
+    dot_y = base_y + int(k_h * 0.35)
+    draw.text((start_x + k_w + gap, dot_y), dot_text, font=font, fill=RED)
+
+    # Color-check bar: 8 segments along the bottom
+    seg_w = (size - pad * 2) / 8
+    bar_y0 = size - pad - bar_h
+    bar_y1 = size - pad
+    # Black underline divider above the bar
+    draw.rectangle([pad, bar_y0 - max(2, size // 250), size - pad, bar_y0], fill=INK)
+    for i in range(8):
+        x0 = int(pad + seg_w * i)
+        x1 = int(pad + seg_w * (i + 1))
+        # Alternate filled/not for a printer's color-check feel
+        # but bias toward filled so the icon reads as "on a streak"
+        fill = RED if i < 6 else PAPER
+        draw.rectangle([x0, bar_y0, x1, bar_y1], fill=fill, outline=INK, width=max(1, size // 400))
+
+    # Tiny blue registration dot in top-right (riso accent)
+    dot_r = max(3, size // 60)
+    draw.ellipse(
+        [size - pad - dot_r * 2, pad, size - pad, pad + dot_r * 2],
+        fill=BLUE
     )
-    draw.rectangle(
-        [border_inset + border_w * 2, border_inset + border_w * 2,
-         s - border_inset - border_w * 2, s - border_inset - border_w * 2],
-        outline=INK, width=border_w
-    )
 
-    # Fat red marker X. Single solid stroke + soft bleed halo, slightly
-    # tilted, slight blur. No internal stripes; one chunky red mark.
-    x_layer = Image.new('RGBA', (s, s), (0, 0, 0, 0))
-    draw_x = ImageDraw.Draw(x_layer)
-    pad = int(s * 0.20)
-    stroke_w = max(14, s // 9)  # fat
-
-    # Soft bleed halo (slightly wider, translucent, lighter red)
-    bleed_w = stroke_w + max(6, s // 60)
-    draw_x.line(
-        [(pad, pad), (s - pad, s - pad)],
-        fill=MARKER_RED_BLEED + (80,), width=bleed_w
-    )
-    draw_x.line(
-        [(s - pad, pad), (pad, s - pad)],
-        fill=MARKER_RED_BLEED + (80,), width=bleed_w
-    )
-
-    # Main solid stroke
-    draw_x.line(
-        [(pad, pad), (s - pad, s - pad)],
-        fill=MARKER_RED + (255,), width=stroke_w
-    )
-    draw_x.line(
-        [(s - pad, pad), (pad, s - pad)],
-        fill=MARKER_RED + (255,), width=stroke_w
-    )
-
-    # Slight rotation for a hand-drawn feel
-    x_layer = x_layer.rotate(-10, resample=Image.BICUBIC)
-
-    # Soften edges (marker bleed into paper)
-    x_layer = x_layer.filter(ImageFilter.GaussianBlur(radius=max(2, s // 500)))
-
-    bg.paste(x_layer, (0, 0), x_layer)
-
-    # Downsample to target size
-    final = bg.resize((size, size), Image.LANCZOS)
-
-    # Add grain at final resolution so the dots stay visible
-    add_paper_grain(final, intensity=10, density_div=40)
-
-    return final
+    add_paper_grain(img)
+    return img
 
 
 def main():
+    if not os.path.exists(FONT_PATH):
+        raise SystemExit(f'Missing font: {FONT_PATH}. Run: curl -sL -o {FONT_PATH} https://github.com/google/fonts/raw/main/ofl/archivoblack/ArchivoBlack-Regular.ttf')
     for sz in SIZES:
         img = make_icon(sz)
         out = os.path.join(OUT_DIR, f'icon-{sz}.png')

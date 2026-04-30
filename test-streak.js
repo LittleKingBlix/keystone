@@ -1,170 +1,191 @@
-// ============================================================
-// Streak engine tests. Run: node test-streak.js
-// ============================================================
+// test-streak.js — Node tests for the streak engine.
+// Run: node test-streak.js
 
-const {
-  HABIT_KEYS, detectResets, computeCurrentStreak, formatDateKey,
-} = require('./streak.js');
+const K = require('./streak.js');
+const { HABITS, fmt, addDays, daysBetween, parseISO, todayString,
+        recordFor, isComplete, completeCount,
+        computeStreak, computeBreaks, monthGrid } = K;
 
-let passed = 0;
-let failed = 0;
+let passed = 0, failed = 0;
 
-function assertEqual(actual, expected, label) {
+function assert(actual, expected, label) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
   if (ok) { passed++; console.log(`PASS  ${label}`); }
-  else { failed++; console.log(`FAIL  ${label}\n      expected ${JSON.stringify(expected)}\n      got      ${JSON.stringify(actual)}`); }
-}
-
-function assertSet(actualSet, expectedArr, label) {
-  const a = [...actualSet].sort();
-  const b = [...expectedArr].sort();
-  assertEqual(a, b, label);
-}
-
-// Build a state where startDate is N days ago, "today" is N+1 (so we have N completed past days).
-function makeState(daysCompleted, dayBuilder) {
-  const today = new Date();
-  today.setHours(12, 0, 0, 0); // midday so day boundary doesn't shift
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - daysCompleted);
-  const days = {};
-  for (let i = 0; i < daysCompleted; i++) {
-    const d = new Date(startDate);
-    d.setDate(startDate.getDate() + i);
-    const k = formatDateKey(d);
-    days[k] = dayBuilder(i);
+  else {
+    failed++;
+    console.log(`FAIL  ${label}\n      expected ${JSON.stringify(expected)}\n      got      ${JSON.stringify(actual)}`);
   }
-  return {
-    startDate: formatDateKey(startDate),
-    dayBoundaryHour: 0,
-    days,
-  };
 }
 
-function allDone() {
-  const day = {};
-  for (const h of HABIT_KEYS) {
-    if (h === 'weighIn') day[h] = { done: true, value: 195 };
-    else day[h] = true;
-  }
-  return day;
+// Build a record with all habits done (and an optional weight value).
+function allDone(date, weight) {
+  const habits = {};
+  for (const h of HABITS) habits[h.id] = true;
+  return { date, habits, weight: weight ?? null };
+}
+function doneExcept(date, missing) {
+  const r = allDone(date);
+  for (const m of missing) r.habits[m] = false;
+  return r;
+}
+function emptyDay(date) {
+  const habits = {};
+  for (const h of HABITS) habits[h.id] = false;
+  return { date, habits, weight: null };
 }
 
-function allDoneExcept(missingKeys) {
-  const d = allDone();
-  for (const k of missingKeys) {
-    if (k === 'weighIn') d[k] = { done: false };
-    else d[k] = false;
-  }
-  return d;
-}
+// --- Date helpers ---
 
-// ---------- Tests ----------
+assert(fmt(new Date(2026, 3, 26)), '2026-04-26', 'fmt: April 26 2026');
+assert(addDays('2026-04-26', 1), '2026-04-27', 'addDays: +1');
+assert(addDays('2026-04-26', -1), '2026-04-25', 'addDays: -1');
+assert(daysBetween('2026-04-26', '2026-05-01'), 5, 'daysBetween: 5');
+assert(daysBetween('2026-05-01', '2026-04-26'), -5, 'daysBetween: -5');
+assert(parseISO('2026-04-26').getMonth(), 3, 'parseISO: month 0-indexed');
 
-// Test 1: 7 perfect past days, no resets
+// Day boundary
+const noon = new Date(2026, 3, 26, 12, 0);
+const am2 = new Date(2026, 3, 26, 2, 0);
+assert(todayString(noon, 0), '2026-04-26', 'todayString: midnight cutoff at noon');
+assert(todayString(am2, 0), '2026-04-26', 'todayString: midnight cutoff at 2am');
+assert(todayString(am2, 4), '2026-04-25', 'todayString: 4am cutoff at 2am goes to prev day');
+assert(todayString(noon, 4), '2026-04-26', 'todayString: 4am cutoff at noon stays today');
+
+// --- Records ---
+
+const recs = [allDone('2026-04-26'), doneExcept('2026-04-27', ['cold'])];
+assert(recordFor(recs, '2026-04-26').date, '2026-04-26', 'recordFor: hit');
+assert(recordFor(recs, '2026-04-28'), null, 'recordFor: miss');
+assert(isComplete(recs[0]), true, 'isComplete: all 8');
+assert(isComplete(recs[1]), false, 'isComplete: 7 of 8');
+assert(completeCount(recs[1]), 7, 'completeCount: 7');
+assert(completeCount(null), 0, 'completeCount: null = 0');
+
+// --- Streak engine: the critical rules ---
+
+// 7 perfect days (today not yet recorded; today is in progress)
 {
-  const s = makeState(7, () => allDone());
-  const resets = detectResets(s);
-  assertSet(resets, [], 'T1: 7 perfect days yields no resets');
-  // streak = 7 past days + today = 8
-  const tk = formatDateKey(new Date());
-  const streak = computeCurrentStreak(s, tk);
-  assertEqual(streak, 8, 'T1: 7 perfect past days + today = streak 8');
+  const records = [];
+  for (let i = 0; i < 7; i++) records.push(allDone(addDays('2026-04-20', i)));
+  const r = computeStreak(records, '2026-04-20', '2026-04-27');
+  assert(r.streak, 7, '7 perfect past days = streak 7');
+  assert(r.completedDays, 7, '7 perfect past days = 7 completed');
 }
 
-// Test 2: One miss on day 4 (cold shower), no two-in-a-row
+// One miss alone, no consecutive same → no reset
 {
-  const s = makeState(7, i => i === 3 ? allDoneExcept(['coldShower']) : allDone());
-  const resets = detectResets(s);
-  assertSet(resets, [], 'T2: single miss alone yields no reset');
-  const tk = formatDateKey(new Date());
-  const streak = computeCurrentStreak(s, tk);
-  assertEqual(streak, 8, 'T2: single miss does not break streak');
+  const records = [
+    allDone('2026-04-20'),
+    allDone('2026-04-21'),
+    doneExcept('2026-04-22', ['cold']),
+    allDone('2026-04-23'),
+    allDone('2026-04-24'),
+  ];
+  const r = computeStreak(records, '2026-04-20', '2026-04-25');
+  assert(r.streak, 4, 'single miss alone: streak holds at 4 perfect days');
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-25');
+  assert(breaks.length, 0, 'single miss alone: no breaks');
 }
 
-// Test 3: Cold shower missed days 4 and 5, reset triggered
+// Same habit missed two days in a row → reset
 {
-  const s = makeState(7, i => (i === 3 || i === 4) ? allDoneExcept(['coldShower']) : allDone());
-  const resets = detectResets(s);
-  // The reset happens on the second consecutive miss day (i=4), which is day index 4
-  const [y, m, d] = s.startDate.split('-').map(Number);
-  const startD = new Date(y, m - 1, d);
-  const expectedResetDate = new Date(startD);
-  expectedResetDate.setDate(startD.getDate() + 4);
-  assertSet(resets, [formatDateKey(expectedResetDate)], 'T3: same habit twice yields one reset');
-  // Streak after reset: today is 3 days after reset
-  // Past days: 7 (indices 0..6), reset on index 4. Streak start = index 5. Today = index 7 (after end).
-  // Days from index 5 to today inclusive: index 5, 6, today = 3
-  const tk = formatDateKey(new Date());
-  const streak = computeCurrentStreak(s, tk);
-  assertEqual(streak, 3, 'T3: streak resumes after reset (3 days: 5, 6, today)');
+  const records = [
+    allDone('2026-04-20'),
+    allDone('2026-04-21'),
+    doneExcept('2026-04-22', ['cold']),
+    doneExcept('2026-04-23', ['cold']),
+    allDone('2026-04-24'),
+    allDone('2026-04-25'),
+  ];
+  const r = computeStreak(records, '2026-04-20', '2026-04-26');
+  assert(r.streak, 2, 'same habit two days in a row: reset, streak resumes (2 days after reset)');
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-26');
+  assert(breaks.length, 1, 'same habit twice: 1 break');
+  assert(breaks[0].missedHabit, 'cold', 'break: missed habit recorded');
+  assert(breaks[0].date, '2026-04-23', 'break: triggered on second miss day');
 }
 
-// Test 4: Different habits missed on consecutive days yields no reset
+// Different habits on consecutive days → no reset
 {
-  const s = makeState(7, i => {
-    if (i === 3) return allDoneExcept(['coldShower']);
-    if (i === 4) return allDoneExcept(['water']);
-    return allDone();
-  });
-  const resets = detectResets(s);
-  assertSet(resets, [], 'T4: different habits consecutive does not reset');
+  const records = [
+    allDone('2026-04-20'),
+    doneExcept('2026-04-21', ['cold']),
+    doneExcept('2026-04-22', ['water']),
+    allDone('2026-04-23'),
+  ];
+  const r = computeStreak(records, '2026-04-20', '2026-04-24');
+  // Day 0: perfect (+1=1). Day 1: cold missed (hold at 1). Day 2: water missed,
+  // cold NOT in current missed → no reset (hold at 1). Day 3: perfect (+1=2).
+  assert(r.streak, 2, 'different habits consecutive: no reset, only perfect days count toward streak');
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-24');
+  assert(breaks.length, 0, 'different habits consecutive: no breaks');
 }
 
-// Test 5: Three consecutive miss days of same habit triggers two resets, streak = 1
+// Three same-habit misses in a row → break on day 2 (the second-in-a-row), then again on day 3
 {
-  const s = makeState(7, i => (i >= 3 && i <= 5) ? allDoneExcept(['read']) : allDone());
-  const resets = detectResets(s);
-  // Resets on i=4 and i=5
-  assertEqual(resets.size, 2, 'T5: three consecutive misses yields two reset days');
-  // Most recent reset is i=5, streak start = i=6, today is i=7. Days 6, today = 2
-  const tk = formatDateKey(new Date());
-  const streak = computeCurrentStreak(s, tk);
-  assertEqual(streak, 2, 'T5: streak counts from day after most recent reset');
+  const records = [
+    allDone('2026-04-20'),
+    doneExcept('2026-04-21', ['read']),
+    doneExcept('2026-04-22', ['read']),
+    doneExcept('2026-04-23', ['read']),
+    allDone('2026-04-24'),
+  ];
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-25');
+  assert(breaks.length, 2, 'three consecutive same-habit misses: 2 break events (day 2 and day 3)');
 }
 
-// Test 6: A missing day record counts as miss for all habits
+// Empty records (no day recorded at all) count as miss for all habits
 {
-  // Only record indices 0,1,2,3,4 (skip 5, 6 not recorded). Then i=5 and i=6 both blank = miss for all habits.
-  const s = makeState(7, i => i < 5 ? allDone() : null);
-  // Filter out null entries (simulate days never recorded)
-  for (const k of Object.keys(s.days)) {
-    if (s.days[k] === null) delete s.days[k];
-  }
-  const resets = detectResets(s);
-  // Day 5 = miss (no record), day 6 = miss (no record). Reset on day 6.
-  assertEqual(resets.size > 0, true, 'T6: blank days count as miss and trigger reset');
+  const records = [allDone('2026-04-20')]; // skip 21 and 22 entirely
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-23');
+  // Day 21 missing = all 8 missed. Day 22 missing = all 8 missed. So same-habit miss on consecutive days → break.
+  assert(breaks.length > 0, true, 'unrecorded consecutive days trigger break');
 }
 
-// Test 7: First day cannot be a reset (no prior day)
+// First day cannot be a reset (no prior day)
 {
-  const s = makeState(2, i => allDoneExcept(['water']));
-  const resets = detectResets(s);
-  // Day 0: prevMissed undefined, missed=true. firstDay=true so no add.
-  // Day 1: prevMissed=true (from day 0), missed=true. firstDay=false so adds.
-  assertEqual(resets.size, 1, 'T7: reset on day 1 when day 0 also missed');
+  const records = [emptyDay('2026-04-20')];
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-21');
+  assert(breaks.length, 0, 'first day cannot be a reset');
 }
 
-// Test 8: Empty program (only today, no past days), streak = 1
+// startDate after today → empty result
 {
-  const s = makeState(0, () => allDone());
-  const tk = formatDateKey(new Date());
-  const streak = computeCurrentStreak(s, tk);
-  assertEqual(streak, 1, 'T8: day 1 of program shows streak 1');
+  const r = computeStreak([], '2026-12-01', '2026-04-26');
+  assert(r.streak, 0, 'startDate in future: streak 0');
+  const b = computeBreaks([], '2026-12-01', '2026-04-26');
+  assert(b.length, 0, 'startDate in future: no breaks');
 }
 
-// Test 9: weighIn handles { done, value } shape
+// Weight handling: weigh habit follows the same boolean rule
 {
-  const s = makeState(3, i => i === 1 ? allDoneExcept(['weighIn']) : allDone());
-  const resets = detectResets(s);
-  assertSet(resets, [], 'T9: single weigh-in miss alone does not reset');
+  const records = [
+    allDone('2026-04-20', 195.4),
+    { date: '2026-04-21', habits: { ...allDone('2026-04-21').habits, weigh: false }, weight: null },
+    { date: '2026-04-22', habits: { ...allDone('2026-04-22').habits, weigh: false }, weight: null },
+  ];
+  const breaks = computeBreaks(records, '2026-04-20', '2026-04-23');
+  assert(breaks.length, 1, 'weigh missed two days in a row: break');
+  assert(breaks[0].missedHabit, 'weigh', 'weigh break recorded');
 }
 
-// Test 10: weighIn missed two days in a row
+// monthGrid: 42 cells, marks today
 {
-  const s = makeState(3, i => (i === 0 || i === 1) ? allDoneExcept(['weighIn']) : allDone());
-  const resets = detectResets(s);
-  assertEqual(resets.size, 1, 'T10: weigh-in missed twice in a row resets');
+  const records = [allDone('2026-04-26')];
+  const cells = monthGrid(2026, 3, records, '2026-04-20', '2026-04-26', 1);
+  assert(cells.length, 42, 'monthGrid: 42 cells');
+  const todayCell = cells.find(c => c.isToday);
+  assert(todayCell.date, '2026-04-26', 'monthGrid: today flagged');
+  assert(todayCell.complete, true, 'monthGrid: today complete');
+}
+
+// monthGrid: future days flagged
+{
+  const cells = monthGrid(2026, 3, [], '2026-04-20', '2026-04-26', 1);
+  const future = cells.find(c => c.date === '2026-04-30');
+  assert(future.future, true, 'monthGrid: future flagged');
+  const past = cells.find(c => c.date === '2026-04-15');
+  assert(past.beforeStart, true, 'monthGrid: before-start flagged');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

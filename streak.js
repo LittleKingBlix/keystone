@@ -1,107 +1,174 @@
-// ============================================================
-// Keystone, streak engine
-// Reset rule: same habit missed two consecutive days = full reset.
-// Different habits missed on consecutive days does NOT reset.
-// Today is in progress and never counts as a miss for reset detection.
-// ============================================================
+// streak.js, Keystone streak/calendar logic.
+// Pure functions, no DOM. Importable as module or via <script src>.
+// Ported from the Direction F design bundle.
+//
+// DATA SHAPE:
+//   record  = { date: 'YYYY-MM-DD', habits: { [habitId]: bool }, weight?: number }
+//   records = array of records, sorted ascending by date
+//   today   = 'YYYY-MM-DD' string in user's local time, accounting for dayBoundaryHour
 
-const HABIT_KEYS = ['read', 'weighIn', 'water', 'workout', 'diet', 'visualization', 'social', 'coldShower'];
+// THE 8 KEYSTONE HABITS, order matters (same order across all UI).
+const HABITS = [
+  { id: 'read',      label: 'Read 10 pages',    short: 'Read' },
+  { id: 'weigh',     label: 'Weigh in',         short: 'Weight' },
+  { id: 'water',     label: '64oz water',       short: 'Water' },
+  { id: 'workout',   label: '45 min workout',   short: 'Workout' },
+  { id: 'meal',      label: 'Compliant meal',   short: 'Meal' },
+  { id: 'visualize', label: 'Visualization',    short: 'Visualize' },
+  { id: 'social',    label: 'Social food only', short: 'Social' },
+  { id: 'cold',      label: 'Cold shower',      short: 'Cold' },
+];
 
-function isMissed(day, habitKey) {
-  if (!day) return true;
-  if (habitKey === 'weighIn') {
-    return !(day.weighIn && day.weighIn.done);
-  }
-  return !day[habitKey];
-}
-
-// Returns Set of date keys (YYYY-MM-DD) where a reset condition triggered
-// for at least one habit. Resets are detected only on completed past days,
-// not on today (today is in progress).
-function detectResets(state) {
-  const resets = new Set();
-  if (!state || !state.startDate) return resets;
-  const startD = parseDateKey(state.startDate);
-  const today = parseDateKey(todayKeyFor(state));
-  if (!startD || !today) return resets;
-
-  for (const h of HABIT_KEYS) {
-    let prevMissed = false;
-    let firstDay = true;
-    for (let d = new Date(startD); d < today; d.setDate(d.getDate() + 1)) {
-      const k = formatDateKey(d);
-      const day = state.days[k];
-      const missed = isMissed(day, h);
-
-      if (!firstDay && missed && prevMissed) {
-        resets.add(k);
-      }
-      prevMissed = missed;
-      firstDay = false;
-    }
-  }
-  return resets;
-}
-
-// Current streak in days. Starts at 1 on the first day of the program
-// (or the day after the most recent reset). Resets count from the day after.
-function computeCurrentStreak(state, todayKeyStr) {
-  if (!state || !state.startDate) return 0;
-  const resets = detectResets(state);
-  const sortedResets = [...resets].sort();
-
-  let streakStartDate;
-  if (sortedResets.length) {
-    const lastReset = parseDateKey(sortedResets[sortedResets.length - 1]);
-    streakStartDate = new Date(lastReset);
-    streakStartDate.setDate(streakStartDate.getDate() + 1);
-  } else {
-    streakStartDate = parseDateKey(state.startDate);
-  }
-
-  const today = parseDateKey(todayKeyStr);
-  if (!streakStartDate || !today) return 0;
-  if (today < streakStartDate) return 0;
-
-  const days = Math.floor((today - streakStartDate) / 86400000) + 1;
-  return Math.max(0, days);
-}
-
-// Helpers (kept inside streak.js so it can be tested standalone).
-function parseDateKey(k) {
-  if (!k) return null;
-  const [y, m, d] = k.split('-').map(Number);
+// Date helpers
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmt(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function parseISO(s) {
+  const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
-function formatDateKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+function addDays(s, n) {
+  const d = parseISO(s);
+  d.setDate(d.getDate() + n);
+  return fmt(d);
 }
-function todayKeyFor(state) {
-  const now = new Date();
-  const boundary = state.dayBoundaryHour ?? 4;
-  if (now.getHours() < boundary) {
-    now.setDate(now.getDate() - 1);
-  }
-  return formatDateKey(now);
+function daysBetween(a, b) {
+  const ms = parseISO(b).getTime() - parseISO(a).getTime();
+  return Math.round(ms / 86400000);
 }
 
-// Expose for app.js (browser) and tests (node).
-if (typeof window !== 'undefined') {
-  window.Keystone = window.Keystone || {};
-  window.Keystone.HABIT_KEYS = HABIT_KEYS;
-  window.Keystone.detectResets = detectResets;
-  window.Keystone.computeCurrentStreak = computeCurrentStreak;
-  window.Keystone.parseDateKey = parseDateKey;
-  window.Keystone.formatDateKey = formatDateKey;
-  window.Keystone.todayKeyFor = todayKeyFor;
-  window.Keystone.isMissed = isMissed;
+// "Today" respecting day boundary. dayBoundaryHour=0 means midnight strict.
+// dayBoundaryHour=4 means 11:59pm-3:59am still belongs to the previous day.
+function todayString(now = new Date(), dayBoundaryHour = 0) {
+  const d = new Date(now);
+  if (d.getHours() < dayBoundaryHour) d.setDate(d.getDate() - 1);
+  return fmt(d);
 }
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    HABIT_KEYS, detectResets, computeCurrentStreak,
-    parseDateKey, formatDateKey, todayKeyFor, isMissed,
-  };
+
+// Record helpers
+function recordFor(records, date) {
+  return records.find(r => r.date === date) || null;
 }
+function isComplete(record) {
+  if (!record) return false;
+  return HABITS.every(h => !!record.habits[h.id]);
+}
+function completeCount(record) {
+  if (!record) return 0;
+  return HABITS.reduce((n, h) => n + (record.habits[h.id] ? 1 : 0), 0);
+}
+
+// THE STREAK RULE
+// "If the same habit is missed on two consecutive days, the streak resets
+//  to zero. Different habits missed on consecutive days are forgiven.
+//  Today is in progress and never counts as a miss."
+function computeStreak(records, startDate, today) {
+  let streak = 0;
+  let lastResetDate = startDate;
+  let completedDays = 0;
+  let prevMissed = new Set();
+
+  if (daysBetween(startDate, today) < 0) {
+    return { streak: 0, lastResetDate: startDate, completedDays: 0 };
+  }
+
+  let cursor = startDate;
+  while (cursor !== today) {
+    const rec = recordFor(records, cursor);
+    const missed = new Set();
+    for (const h of HABITS) {
+      if (!rec || !rec.habits[h.id]) missed.add(h.id);
+    }
+
+    let consecutiveSame = false;
+    for (const id of missed) {
+      if (prevMissed.has(id)) { consecutiveSame = true; break; }
+    }
+
+    if (consecutiveSame) {
+      streak = 0;
+      lastResetDate = cursor;
+    } else if (missed.size === 0) {
+      streak += 1;
+      completedDays += 1;
+    }
+
+    prevMissed = missed;
+    cursor = addDays(cursor, 1);
+    if (daysBetween(startDate, cursor) > 3650) break;
+  }
+
+  return { streak, lastResetDate, completedDays };
+}
+
+// List every chain reset between startDate and today.
+function computeBreaks(records, startDate, today) {
+  const breaks = [];
+  if (daysBetween(startDate, today) < 0) return breaks;
+
+  let streak = 0;
+  let prevMissed = new Set();
+  let cursor = startDate;
+
+  while (cursor !== today) {
+    const rec = recordFor(records, cursor);
+    const missed = new Set();
+    for (const h of HABITS) {
+      if (!rec || !rec.habits[h.id]) missed.add(h.id);
+    }
+
+    let consecutiveSame = null;
+    for (const id of missed) {
+      if (prevMissed.has(id)) { consecutiveSame = id; break; }
+    }
+
+    if (consecutiveSame) {
+      breaks.push({ date: cursor, missedHabit: consecutiveSame, runLength: streak });
+      streak = 0;
+    } else if (missed.size === 0) {
+      streak += 1;
+    }
+
+    prevMissed = missed;
+    cursor = addDays(cursor, 1);
+    if (daysBetween(startDate, cursor) > 3650) break;
+  }
+  return breaks;
+}
+
+// 6x7 month grid for calendar view.
+function monthGrid(year, month, records, startDate, today, weekStartsOn = 0) {
+  const first = new Date(year, month, 1);
+  const offset = (first.getDay() - weekStartsOn + 7) % 7;
+  const gridStart = new Date(year, month, 1 - offset);
+  const cells = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    const date = fmt(d);
+    const rec = recordFor(records, date);
+    const beforeStart = daysBetween(startDate, date) < 0;
+    const future = daysBetween(today, date) > 0;
+    const isToday = date === today;
+    cells.push({
+      date,
+      day: d.getDate(),
+      inMonth: d.getMonth() === month,
+      record: rec,
+      count: completeCount(rec),
+      complete: isComplete(rec),
+      isToday, beforeStart, future,
+    });
+  }
+  return cells;
+}
+
+// Exports
+const Keystone = {
+  HABITS,
+  pad2, fmt, parseISO, addDays, daysBetween, todayString,
+  recordFor, isComplete, completeCount,
+  computeStreak, computeBreaks, monthGrid,
+};
+
+if (typeof window !== 'undefined') window.Keystone = Keystone;
+if (typeof module !== 'undefined' && module.exports) module.exports = Keystone;

@@ -86,10 +86,17 @@ URL: `https://<your-github-user>.github.io/keystone/`. Takes ~2 minutes for firs
 ## Phase status
 
 - [x] Phase 1: Skeleton, today view, localStorage
-- [x] Phase 2: Streak engine (14 tests passing)
+- [x] Phase 2: Streak engine (38 tests passing)
 - [x] Phase 3: Calendar view
 - [x] Phase 4: Paper aesthetic
 - [x] Phase 5: Service worker + custom icon PNGs
+- [x] Direction F redesign: Riso/magazine aesthetic from Claude Design handoff
+       - 4 tabs (Today, Month, History, Settings)
+       - Magazine masthead with NO. NNN streak counter
+       - Calendar: ink-fill complete days, 8-bar partials, blue diagonal slashes for misses
+       - History tab with break log and stats
+       - Riso color palette: #f4eee0 paper / #0a0a0a ink / #e63a26 red / #2a4ec4 blue
+       - New schema: `{ records: [{date, habits, weight}], startDate }` with legacy migration
 - [ ] Phase 6: Live testing and friction fixes (you, on iPhone, after deploy)
 
 ## Open items
