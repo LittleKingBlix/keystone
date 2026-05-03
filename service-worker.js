@@ -5,7 +5,7 @@
 // for everything else (icons, scripts, styles, fonts).
 // ============================================================
 
-const CACHE_NAME = 'keystone-v0.2.1-drag';
+const CACHE_NAME = 'keystone-v0.2.2-sun';
 const SHELL_ASSETS = [
   './',
   './index.html',

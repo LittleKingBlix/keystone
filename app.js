@@ -274,7 +274,7 @@
   function renderMonth() {
     const today = todayKey();
     const dt = monthCursor;
-    const cells = K.monthGrid(dt.getFullYear(), dt.getMonth(), state.records, state.startDate, today, 1);
+    const cells = K.monthGrid(dt.getFullYear(), dt.getMonth(), state.records, state.startDate, today, 0);
     const monthLabel = dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
     const yr = String(dt.getFullYear()).slice(2);
     const monthCells = cells.filter(c => c.inMonth && !c.future && !c.beforeStart);
@@ -295,7 +295,7 @@
         </div>
       </div>
       <div class="weekday-row">
-        ${['M','T','W','T','F','S','S'].map((d, i) => `<div class="wd ${i >= 5 ? 'weekend' : ''}">${d}</div>`).join('')}
+        ${['S','M','T','W','T','F','S'].map((d, i) => `<div class="wd ${(i === 0 || i === 6) ? 'weekend' : ''}">${d}</div>`).join('')}
       </div>
       <div class="month-grid">
         ${cells.map((c, i) => renderCell(c)).join('')}
