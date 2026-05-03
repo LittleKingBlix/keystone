@@ -5,7 +5,7 @@
 // for everything else (icons, scripts, styles, fonts).
 // ============================================================
 
-const CACHE_NAME = 'keystone-v0.2.5-resilient';
+const CACHE_NAME = 'keystone-v0.2.6-recover';
 const SHELL_ASSETS = [
   './',
   './index.html',

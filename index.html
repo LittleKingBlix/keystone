@@ -13,6 +13,63 @@
   <title>Keystone</title>
 </head>
 <body>
+  <!--
+    Recovery hatch: visit ?clear-sw=1 to unregister all service workers and
+    purge all caches for this origin, then reload to a clean state. Useful
+    when an iOS PWA wedges itself between deploys.
+  -->
+  <script>
+    (function(){
+      try {
+        var p = new URLSearchParams(location.search);
+        if (p.has('clear-sw')) {
+          document.body && (document.body.style.background = '#f4eee0');
+          var done = function(){ location.replace(location.pathname); };
+          var cleared = 0, target = 0;
+          if (navigator.serviceWorker) {
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              target += regs.length;
+              regs.forEach(function(r){
+                r.unregister().then(function(){ cleared++; if (cleared === target) clearCaches(); });
+              });
+              if (regs.length === 0) clearCaches();
+            }).catch(clearCaches);
+          } else {
+            clearCaches();
+          }
+          function clearCaches(){
+            if (window.caches) {
+              caches.keys().then(function(keys){
+                Promise.all(keys.map(function(k){ return caches.delete(k); })).then(done, done);
+              }, done);
+            } else { done(); }
+          }
+          throw new Error('clear-sw — halting normal load');
+        }
+      } catch (e) {
+        if (String(e).indexOf('clear-sw') !== -1) { /* expected */ }
+        else { console.error(e); }
+      }
+    })();
+  </script>
+
+  <!-- Diagnostic: if app.js or streak.js fail to run, show a visible
+       error message so the user can report what went wrong instead of
+       seeing a blank screen. -->
+  <script>
+    window.addEventListener('error', function(ev){
+      var div = document.getElementById('keystone-error');
+      if (!div) {
+        div = document.createElement('div');
+        div.id = 'keystone-error';
+        div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#cf2233;color:#f4eee0;padding:14px 18px;font-family:monospace;font-size:12px;z-index:9999;white-space:pre-wrap;line-height:1.4';
+        document.body && document.body.appendChild(div);
+      }
+      div.textContent = 'KEYSTONE LOAD ERROR\n' + (ev.message || '?') + '\n' + (ev.filename || '') + ':' + (ev.lineno || '?') +
+        '\n\nVisit ?clear-sw=1 to recover.';
+    });
+  </script>
+
   <div id="app">
     <section id="view-today" class="view active"></section>
     <section id="view-month" class="view"></section>
