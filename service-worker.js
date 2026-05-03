@@ -5,7 +5,7 @@
 // for everything else (icons, scripts, styles, fonts).
 // ============================================================
 
-const CACHE_NAME = 'keystone-v0.2.4-bust';
+const CACHE_NAME = 'keystone-v0.2.5-resilient';
 const SHELL_ASSETS = [
   './',
   './index.html',
@@ -21,9 +21,12 @@ const SHELL_ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // Use Promise.allSettled instead of addAll so that one bad asset
+  // (e.g. a transient 404 during deploy) doesn't fail the whole install
+  // and leave the previous SW wedged in control.
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(c => c.addAll(SHELL_ASSETS))
+      .then(c => Promise.allSettled(SHELL_ASSETS.map(a => c.add(a))))
       .then(() => self.skipWaiting())
   );
 });
