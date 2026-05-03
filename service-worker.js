@@ -5,16 +5,16 @@
 // for everything else (icons, scripts, styles, fonts).
 // ============================================================
 
-const CACHE_NAME = 'keystone-v0.2.3-today';
+const CACHE_NAME = 'keystone-v0.2.4-bust';
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
-  './streak.js',
+  './styles.css?v=0.2.4',
+  './app.js?v=0.2.4',
+  './streak.js?v=0.2.4',
   './manifest.json',
   './rules.md',
-  './icon-180.png',
+  './icon-180.png?v=0.2.4',
   './icon-192.png',
   './icon-512.png',
   './icon-1024.png',
