@@ -331,16 +331,33 @@
     if (!c.inMonth) classes.push('outside-month');
     if (c.future) classes.push('future');
     if (c.beforeStart) classes.push('before-start');
-    if (c.complete) classes.push('complete');
+    // Today is never shown as "complete" in the calendar, even if all 8 are
+    // done. The day is still in progress; the day rolls over to "complete" the
+    // next morning. This preserves the meaning of an ink-filled cell as
+    // "this day was kept" (past tense).
+    const showComplete = c.complete && !c.isToday;
+    if (showComplete) classes.push('complete');
     if (c.isToday) classes.push('today-cell');
 
     let inner = `<span class="day-num">${c.day}</span>`;
-    if (!c.complete && c.count > 0 && c.inMonth && !c.future && !c.beforeStart) {
+
+    // Progress bars: shown on today always (so 0/8 reads as "started, no
+    // progress yet" and 8/8 reads as "all done, but day not closed"), and on
+    // past partial days. Never on a fully-complete past day (its cell is
+    // ink-filled instead).
+    const showBars = c.inMonth && !c.future && !c.beforeStart && (
+      c.isToday || (!c.complete && c.count > 0)
+    );
+    if (showBars) {
       inner += `<span class="day-bars">${
         Array.from({ length: 8 }, (_, j) => `<span class="bar ${j < c.count ? 'on' : ''}"></span>`).join('')
       }</span>`;
     }
-    if (c.count === 0 && c.inMonth && !c.future && !c.beforeStart) {
+
+    // Diagonal slash for "no progress at all" days, ONLY on past days.
+    // Today with 0/8 is in progress, not missed.
+    const showSlash = c.count === 0 && c.inMonth && !c.future && !c.beforeStart && !c.isToday;
+    if (showSlash) {
       inner += `<svg class="day-slash" preserveAspectRatio="none" viewBox="0 0 40 40"><line x1="6" y1="34" x2="34" y2="6" stroke="${getCSSVar('--blue')}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
     }
 
