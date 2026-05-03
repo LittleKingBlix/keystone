@@ -160,45 +160,113 @@
       </div>
     `;
 
-    // Wire up taps
-    view.querySelectorAll('.habit').forEach(li => {
-      const id = li.dataset.habit;
-      li.addEventListener('click', e => {
-        if (e.target.classList.contains('habit-input')) return;
-        if (id === 'weigh') {
-          const input = li.querySelector('.habit-input');
-          const cur = state.records.find(r => r.date === today)?.weight;
-          if (cur != null && cur !== '') {
-            // Already done with a value: tapping toggles weigh off but keeps value
-            const isDone = li.classList.contains('done');
-            if (isDone) {
-              const r = K.recordFor(state.records, today) || { date: today, habits: {}, weight: cur };
-              r.habits = { ...r.habits, weigh: false };
-              upsertRecord(r);
-              renderToday();
-            } else {
-              setWeight(today, cur);
-              renderToday();
-            }
-          } else {
-            input.focus();
-          }
-        } else {
-          toggleHabitOn(today, id);
-          renderToday();
-        }
-      });
-    });
+    // Wire up drag-to-commit on each row.
+    // Rule (matches the design):
+    //   - Committed row + tap (pointerdown) = un-commit (toggle off)
+    //   - Uncommitted row + drag past 55% width = commit
+    //   - Uncommitted row + tap with no drag = nothing (forces deliberate gesture)
+    view.querySelectorAll('.habit').forEach(li => attachDragRow(li, today));
 
+    // Weigh-in input gets its own change handler.
     const winp = view.querySelector('.habit-input');
     if (winp) {
-      winp.addEventListener('click', e => e.stopPropagation());
       winp.addEventListener('change', e => {
         const v = parseFloat(e.target.value);
         setWeight(today, isNaN(v) ? null : v);
         renderToday();
       });
     }
+  }
+
+  // Drag-to-commit handler for a single habit row.
+  // Ports keystone-shared.jsx::useDragComplete to vanilla JS.
+  function attachDragRow(li, date) {
+    const id = li.dataset.habit;
+    const wash = li.querySelector('.habit-wash');
+    let startX = null;
+    let width = 0;
+    let drag = 0;
+
+    const setVisual = (v) => {
+      drag = v;
+      if (wash) wash.style.clipPath = `inset(0 ${(1 - v) * 100}% 0 0)`;
+    };
+
+    const onPointerDown = (e) => {
+      // Don't hijack the weight input.
+      if (e.target.classList && e.target.classList.contains('habit-input')) return;
+
+      const isDone = li.classList.contains('done');
+      if (isDone) {
+        // Tap to undo on a committed row.
+        e.preventDefault();
+        if (id === 'weigh') {
+          // Keep the recorded weight value, just mark weigh as not done.
+          const r = K.recordFor(state.records, date) || { date, habits: {}, weight: null };
+          r.habits = { ...r.habits, weigh: false };
+          upsertRecord(r);
+        } else {
+          toggleHabitOn(date, id);
+        }
+        renderToday();
+        return;
+      }
+
+      // Begin drag tracking. Use currentTarget (the row), not e.target (might be a child).
+      const rect = li.getBoundingClientRect();
+      startX = e.clientX;
+      width = rect.width || 1;
+      li.classList.add('dragging');
+      try { li.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+
+    const onPointerMove = (e) => {
+      if (startX == null) return;
+      const dx = e.clientX - startX;
+      setVisual(Math.max(0, Math.min(1, dx / width)));
+    };
+
+    const onPointerUp = (e) => {
+      if (startX == null) return;
+      li.classList.remove('dragging');
+      const finalDrag = drag; // live value, not stale
+      startX = null;
+      try { li.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (finalDrag >= 0.55) {
+        // Commit
+        setVisual(1);
+        if (id === 'weigh') {
+          const cur = K.recordFor(state.records, date)?.weight;
+          if (cur != null) {
+            setWeight(date, cur);
+          } else {
+            // No weight value yet: focus the input so they can type one,
+            // but don't mark weigh as done until a value is recorded.
+            const input = li.querySelector('.habit-input');
+            setVisual(0);
+            if (input) input.focus();
+            return;
+          }
+        } else {
+          toggleHabitOn(date, id);
+        }
+        renderToday();
+      } else {
+        // Snap back
+        setVisual(0);
+      }
+    };
+
+    const onPointerCancel = () => {
+      startX = null;
+      li.classList.remove('dragging');
+      setVisual(li.classList.contains('done') ? 1 : 0);
+    };
+
+    li.addEventListener('pointerdown', onPointerDown);
+    li.addEventListener('pointermove', onPointerMove);
+    li.addEventListener('pointerup', onPointerUp);
+    li.addEventListener('pointercancel', onPointerCancel);
   }
 
   // ---------- Month view ----------

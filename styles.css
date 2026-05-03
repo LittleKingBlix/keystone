@@ -35,7 +35,8 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding-bottom: 64px;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -219,9 +220,12 @@ body {
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
-/* The red wash that sweeps across when committed */
+/* The red wash that sweeps across when committed.
+   During an active drag the JS removes the transition for instant tracking;
+   on release (or class-toggle), the transition snaps it to the final state. */
 .habit-wash {
   position: absolute;
   inset: 0;
@@ -233,6 +237,10 @@ body {
 
 .habit.done .habit-wash {
   clip-path: inset(0 0 0 0);
+}
+
+.habit.dragging .habit-wash {
+  transition: none;
 }
 
 .habit-num {
