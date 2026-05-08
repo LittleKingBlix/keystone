@@ -97,10 +97,10 @@ function computeStreak(records, startDate, today) {
   // streakStart = day after last reset, or startDate if no reset
   const streakStart = lastResetDate ? addDays(lastResetDate, 1) : startDate;
   if (daysBetween(streakStart, today) < 0) {
-    return { streak: 0, lastResetDate: lastResetDate || startDate };
+    return { streak: 0, lastResetDate: lastResetDate || startDate, streakStart };
   }
   const streak = daysBetween(streakStart, today) + 1;
-  return { streak, lastResetDate: lastResetDate || startDate };
+  return { streak, lastResetDate: lastResetDate || startDate, streakStart };
 }
 
 // List every chain reset between startDate and today.

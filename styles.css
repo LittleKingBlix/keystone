@@ -2,7 +2,7 @@
    Cream paper + ink + riso bright red + riso federal blue.
    Fonts: Archivo Black for headlines, Archivo for body, JetBrains Mono for technical. */
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&family=Permanent+Marker&display=swap');
 
 :root {
   --paper: #f4eee0;
@@ -400,6 +400,35 @@ body {
   cursor: pointer;
   font: inherit;
   text-align: left;
+  overflow: hidden;
+}
+
+/* Chain stamp: every active day in the current chain (between the last
+   reset, exclusive, and today, inclusive) gets a fat red marker X.
+   Painted via ::before so it sits BEHIND the day numeral and progress
+   bars but on top of the cell background. */
+.day-cell.chain::before {
+  content: "X";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Permanent Marker', 'Archivo Black', cursive;
+  font-weight: 400;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--red);
+  transform: rotate(-12deg);
+  opacity: 0.92;
+  pointer-events: none;
+  letter-spacing: -0.04em;
+}
+
+/* Lift the day numeral and bars above the chain stamp */
+.day-cell .day-num,
+.day-cell .day-bars {
+  z-index: 2;
 }
 
 .day-cell:nth-child(7n) { border-right: none; }
@@ -433,11 +462,12 @@ body {
   flex: 1;
   height: 3px;
   border: 1px solid rgba(10, 10, 10, 0.33);
+  background: var(--paper);
 }
 
 .day-bars .bar.on {
-  background: var(--red);
-  border: none;
+  background: var(--ink);
+  border: 1px solid var(--ink);
 }
 
 .day-slash {
@@ -986,6 +1016,14 @@ body {
 }
 
 .peek-item {
+  border-bottom: 1px solid rgba(10, 10, 10, 0.13);
+}
+
+.peek-item:last-child { border-bottom: none; }
+.peek-item.done { background: rgba(230, 58, 38, 0.06); }
+.peek-item.disabled { opacity: 0.4; }
+
+.peek-item-toggle {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -994,7 +1032,6 @@ body {
   background: transparent;
   border: none;
   cursor: pointer;
-  border-bottom: 1px solid rgba(10, 10, 10, 0.13);
   font-family: 'Archivo', sans-serif;
   font-size: 13px;
   font-weight: 700;
@@ -1004,31 +1041,29 @@ body {
   color: var(--ink);
 }
 
-.peek-item:last-child { border-bottom: none; }
-.peek-item.done { background: rgba(230, 58, 38, 0.06); }
-.peek-item.disabled { opacity: 0.4; cursor: default; }
+.peek-item.disabled .peek-item-toggle { cursor: default; }
 
-.peek-item .num {
+.peek-item-toggle .num {
   font-family: 'Archivo Black', sans-serif;
   font-size: 22px;
   color: var(--ink);
   width: 28px;
 }
 
-.peek-item.done .num { color: var(--red); }
+.peek-item.done .peek-item-toggle .num { color: var(--red); }
 
-.peek-item .lbl {
+.peek-item-toggle .lbl {
   flex: 1;
   text-decoration: line-through;
   color: rgba(10, 10, 10, 0.67);
 }
 
-.peek-item.done .lbl {
+.peek-item.done .peek-item-toggle .lbl {
   text-decoration: none;
   color: var(--ink);
 }
 
-.peek-item .check {
+.peek-item-toggle .check {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -1037,9 +1072,24 @@ body {
   background: transparent;
 }
 
-.peek-item.done .check {
+.peek-item.done .peek-item-toggle .check {
   background: var(--blue);
   border-color: var(--blue);
+}
+
+.peek-weight {
+  width: 60px;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 14px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--ink);
+  color: var(--ink);
+  outline: none;
+  padding: 2px;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .peek-future-note {

@@ -279,6 +279,9 @@
     const yr = String(dt.getFullYear()).slice(2);
     const monthCells = cells.filter(c => c.inMonth && !c.future && !c.beforeStart);
     const compliant = monthCells.filter(c => c.complete).length;
+    // Chain range: from streakStart through today, inclusive. These are the
+    // days that "contribute to the streak" and get the red marker X.
+    const { streakStart } = K.computeStreak(state.records, state.startDate, today);
 
     const view = document.getElementById('view-month');
     view.innerHTML = `
@@ -298,7 +301,7 @@
         ${['S','M','T','W','T','F','S'].map((d, i) => `<div class="wd ${(i === 0 || i === 6) ? 'weekend' : ''}">${d}</div>`).join('')}
       </div>
       <div class="month-grid">
-        ${cells.map((c, i) => renderCell(c)).join('')}
+        ${cells.map(c => renderCell(c, streakStart, today)).join('')}
       </div>
       <div class="month-bottom">
         <span>KEPT</span>
@@ -326,17 +329,21 @@
     });
   }
 
-  function renderCell(c) {
-    // The philosophy: this is not about perfection, it's about baseline
-    // consistency. So every active day in the calendar gets the same shape:
-    // date numeral + 8 progress bars at the bottom. The bars are the ONLY
-    // visual signal of how the day went. No ink-fill for "perfect" days.
-    // No diagonal slash for "missed" days. Just the bar count.
+  function renderCell(c, streakStart, todayDate) {
+    // Day-level visual: date numeral + 8 progress bars (the only per-day
+    // signal of how that day went, regardless of "perfect" or not).
+    // Chain-level visual: a red marker X stamp on every day that's part of
+    // the current streak (from streakStart through today, inclusive).
     const classes = ['day-cell'];
     if (!c.inMonth) classes.push('outside-month');
     if (c.future) classes.push('future');
     if (c.beforeStart) classes.push('before-start');
     if (c.isToday) classes.push('today-cell');
+
+    const inChain = c.inMonth && !c.future && !c.beforeStart &&
+      streakStart && K.daysBetween(streakStart, c.date) >= 0 &&
+      K.daysBetween(c.date, todayDate) >= 0;
+    if (inChain) classes.push('chain');
 
     let inner = `<span class="day-num">${c.day}</span>`;
 
@@ -666,7 +673,6 @@
 
   function openDayPeek(date) {
     const today = todayKey();
-    const rec = K.recordFor(state.records, date) || { date, habits: {}, weight: null };
     const dt = K.parseISO(date);
     const md = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
     const isToday = date === today;
@@ -680,18 +686,7 @@
           <span>${md}${isToday ? '<span class="peek-today-tag">TODAY</span>' : ''}</span>
           <button class="sheet-close">×</button>
         </div>
-        <div class="peek-list">
-          ${HABITS.map((h, i) => {
-            const done = !!rec.habits[h.id];
-            return `
-              <button class="peek-item ${done ? 'done' : ''} ${isFuture ? 'disabled' : ''}" data-habit="${h.id}" ${isFuture ? 'disabled' : ''}>
-                <span class="num">${i + 1}</span>
-                <span class="lbl">${h.label}</span>
-                <span class="check"></span>
-              </button>
-            `;
-          }).join('')}
-        </div>
+        <div class="peek-list"></div>
         ${isFuture ? '<div class="peek-future-note">— NOT YET —</div>' : ''}
       </div>
     `;
@@ -702,19 +697,70 @@
       }
     });
 
-    overlay.querySelectorAll('.peek-item').forEach(btn => {
-      const id = btn.dataset.habit;
-      btn.addEventListener('click', () => {
-        if (isFuture) return;
-        toggleHabitOn(date, id);
-        // Re-render the peek with fresh state
-        overlay.remove();
-        openDayPeek(date);
-        // Also re-render the month view in the background
-        if (activeTab === 'month') renderMonth();
-      });
-    });
+    function renderList() {
+      const rec = K.recordFor(state.records, date) || { date, habits: {}, weight: null };
+      const list = overlay.querySelector('.peek-list');
+      list.innerHTML = HABITS.map((h, i) => {
+        const done = !!rec.habits[h.id];
+        const weightVal = h.id === 'weigh' ? (rec.weight ?? '') : null;
+        return `
+          <div class="peek-item ${done ? 'done' : ''} ${isFuture ? 'disabled' : ''}" data-habit="${h.id}">
+            <button class="peek-item-toggle" data-habit="${h.id}" ${isFuture ? 'disabled' : ''}>
+              <span class="num">${i + 1}</span>
+              <span class="lbl">${h.label}</span>
+              ${h.id === 'weigh' && !isFuture
+                ? `<input type="number" inputmode="decimal" step="0.1" class="peek-weight" placeholder="—" value="${weightVal}" data-date="${date}"/>`
+                : ''}
+              <span class="check"></span>
+            </button>
+          </div>
+        `;
+      }).join('');
 
+      // Wire up toggles
+      list.querySelectorAll('.peek-item-toggle').forEach(btn => {
+        btn.addEventListener('click', e => {
+          if (e.target.classList.contains('peek-weight')) return;
+          if (isFuture) return;
+          const id = btn.dataset.habit;
+          if (id === 'weigh') {
+            const cur = K.recordFor(state.records, date)?.weight;
+            const isDone = btn.parentElement.classList.contains('done');
+            if (isDone) {
+              const r = K.recordFor(state.records, date) || { date, habits: {}, weight: cur };
+              r.habits = { ...r.habits, weigh: false };
+              upsertRecord(r);
+            } else if (cur != null) {
+              setWeight(date, cur);
+            } else {
+              const inp = btn.querySelector('.peek-weight');
+              if (inp) inp.focus();
+              return;
+            }
+          } else {
+            toggleHabitOn(date, id);
+          }
+          renderList();
+          if (activeTab === 'month') renderMonth();
+          if (activeTab === 'history') renderHistory();
+        });
+      });
+
+      // Wire up weight input
+      const winp = list.querySelector('.peek-weight');
+      if (winp) {
+        winp.addEventListener('click', e => e.stopPropagation());
+        winp.addEventListener('change', e => {
+          const v = parseFloat(e.target.value);
+          setWeight(date, isNaN(v) ? null : v);
+          renderList();
+          if (activeTab === 'history') renderHistory();
+          if (activeTab === 'month') renderMonth();
+        });
+      }
+    }
+
+    renderList();
     document.body.appendChild(overlay);
   }
 
