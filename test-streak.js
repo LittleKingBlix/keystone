@@ -63,16 +63,17 @@ assert(completeCount(null), 0, 'completeCount: null = 0');
 
 // --- Streak engine: the critical rules ---
 
-// 7 perfect days (today not yet recorded; today is in progress)
+// 7 days from start, all perfect, no resets
 {
   const records = [];
   for (let i = 0; i < 7; i++) records.push(allDone(addDays('2026-04-20', i)));
+  // start=4-20, today=4-27, 7 past + today inclusive = day 8
   const r = computeStreak(records, '2026-04-20', '2026-04-27');
-  assert(r.streak, 7, '7 perfect past days = streak 7');
-  assert(r.completedDays, 7, '7 perfect past days = 7 completed');
+  assert(r.streak, 8, '7 past days + today = streak 8 (Day 8)');
 }
 
-// One miss alone, no consecutive same → no reset
+// Single miss alone (different habit, no consecutive same) does NOT reset
+// AND does NOT pause streak under new semantic.
 {
   const records = [
     allDone('2026-04-20'),
@@ -81,13 +82,14 @@ assert(completeCount(null), 0, 'completeCount: null = 0');
     allDone('2026-04-23'),
     allDone('2026-04-24'),
   ];
+  // start=4-20, today=4-25, 5 past + today = day 6. Streak ticks every day.
   const r = computeStreak(records, '2026-04-20', '2026-04-25');
-  assert(r.streak, 4, 'single miss alone: streak holds at 4 perfect days');
+  assert(r.streak, 6, 'single miss alone: streak still ticks every day, no reset (Day 6)');
   const breaks = computeBreaks(records, '2026-04-20', '2026-04-25');
   assert(breaks.length, 0, 'single miss alone: no breaks');
 }
 
-// Same habit missed two days in a row → reset
+// Same habit missed two days in a row → reset; streak counts from day after
 {
   const records = [
     allDone('2026-04-20'),
@@ -97,15 +99,16 @@ assert(completeCount(null), 0, 'completeCount: null = 0');
     allDone('2026-04-24'),
     allDone('2026-04-25'),
   ];
+  // Reset on 4-23. streakStart = 4-24. today = 4-26. days between 4-24 and 4-26 = 2, +1 = 3.
   const r = computeStreak(records, '2026-04-20', '2026-04-26');
-  assert(r.streak, 2, 'same habit two days in a row: reset, streak resumes (2 days after reset)');
+  assert(r.streak, 3, 'same habit twice in a row: streak resumes day after reset (Day 3)');
   const breaks = computeBreaks(records, '2026-04-20', '2026-04-26');
   assert(breaks.length, 1, 'same habit twice: 1 break');
   assert(breaks[0].missedHabit, 'cold', 'break: missed habit recorded');
   assert(breaks[0].date, '2026-04-23', 'break: triggered on second miss day');
 }
 
-// Different habits on consecutive days → no reset
+// Different habits on consecutive days → no reset; streak ticks normally
 {
   const records = [
     allDone('2026-04-20'),
@@ -113,15 +116,14 @@ assert(completeCount(null), 0, 'completeCount: null = 0');
     doneExcept('2026-04-22', ['water']),
     allDone('2026-04-23'),
   ];
+  // start=4-20, today=4-24. 4 past + today = day 5. No reset.
   const r = computeStreak(records, '2026-04-20', '2026-04-24');
-  // Day 0: perfect (+1=1). Day 1: cold missed (hold at 1). Day 2: water missed,
-  // cold NOT in current missed → no reset (hold at 1). Day 3: perfect (+1=2).
-  assert(r.streak, 2, 'different habits consecutive: no reset, only perfect days count toward streak');
+  assert(r.streak, 5, 'different habits consecutive: no reset, streak ticks every day (Day 5)');
   const breaks = computeBreaks(records, '2026-04-20', '2026-04-24');
   assert(breaks.length, 0, 'different habits consecutive: no breaks');
 }
 
-// Three same-habit misses in a row → break on day 2 (the second-in-a-row), then again on day 3
+// Three same-habit misses in a row → break on day 2 and day 3
 {
   const records = [
     allDone('2026-04-20'),
@@ -131,7 +133,23 @@ assert(completeCount(null), 0, 'completeCount: null = 0');
     allDone('2026-04-24'),
   ];
   const breaks = computeBreaks(records, '2026-04-20', '2026-04-25');
-  assert(breaks.length, 2, 'three consecutive same-habit misses: 2 break events (day 2 and day 3)');
+  assert(breaks.length, 2, 'three consecutive same-habit misses: 2 break events');
+  // Most recent reset = 4-23. streakStart = 4-24. today = 4-25. Day 2.
+  const r = computeStreak(records, '2026-04-20', '2026-04-25');
+  assert(r.streak, 2, 'streak counts from day after most recent reset (Day 2)');
+}
+
+// User scenario: started Monday, today is Friday, no resets → Day 5
+{
+  // 2026-05-04 is Monday. Today is 2026-05-08 Friday.
+  const records = [
+    doneExcept('2026-05-04', ['cold']), // missed cold Monday — but only one day, no reset
+    allDone('2026-05-05'),
+    allDone('2026-05-06'),
+    doneExcept('2026-05-07', ['water']), // missed water Thursday, different habit
+  ];
+  const r = computeStreak(records, '2026-05-04', '2026-05-08');
+  assert(r.streak, 5, 'Monday start, Friday today, mixed misses no reset = Day 5');
 }
 
 // Empty records (no day recorded at all) count as miss for all habits

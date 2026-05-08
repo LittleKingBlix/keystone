@@ -327,38 +327,24 @@
   }
 
   function renderCell(c) {
+    // The philosophy: this is not about perfection, it's about baseline
+    // consistency. So every active day in the calendar gets the same shape:
+    // date numeral + 8 progress bars at the bottom. The bars are the ONLY
+    // visual signal of how the day went. No ink-fill for "perfect" days.
+    // No diagonal slash for "missed" days. Just the bar count.
     const classes = ['day-cell'];
     if (!c.inMonth) classes.push('outside-month');
     if (c.future) classes.push('future');
     if (c.beforeStart) classes.push('before-start');
-    // Today is never shown as "complete" in the calendar, even if all 8 are
-    // done. The day is still in progress; the day rolls over to "complete" the
-    // next morning. This preserves the meaning of an ink-filled cell as
-    // "this day was kept" (past tense).
-    const showComplete = c.complete && !c.isToday;
-    if (showComplete) classes.push('complete');
     if (c.isToday) classes.push('today-cell');
 
     let inner = `<span class="day-num">${c.day}</span>`;
 
-    // Progress bars: shown on today always (so 0/8 reads as "started, no
-    // progress yet" and 8/8 reads as "all done, but day not closed"), and on
-    // past partial days. Never on a fully-complete past day (its cell is
-    // ink-filled instead).
-    const showBars = c.inMonth && !c.future && !c.beforeStart && (
-      c.isToday || (!c.complete && c.count > 0)
-    );
+    const showBars = c.inMonth && !c.future && !c.beforeStart;
     if (showBars) {
       inner += `<span class="day-bars">${
         Array.from({ length: 8 }, (_, j) => `<span class="bar ${j < c.count ? 'on' : ''}"></span>`).join('')
       }</span>`;
-    }
-
-    // Diagonal slash for "no progress at all" days, ONLY on past days.
-    // Today with 0/8 is in progress, not missed.
-    const showSlash = c.count === 0 && c.inMonth && !c.future && !c.beforeStart && !c.isToday;
-    if (showSlash) {
-      inner += `<svg class="day-slash" preserveAspectRatio="none" viewBox="0 0 40 40"><line x1="6" y1="34" x2="34" y2="6" stroke="${getCSSVar('--blue')}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
     }
 
     return `<button class="${classes.join(' ')}" data-date="${c.date}">${inner}</button>`;
@@ -373,10 +359,21 @@
   function renderHistory() {
     const today = todayKey();
     const breaks = K.computeBreaks(state.records, state.startDate, today);
-    const totalDays = Math.max(0, K.daysBetween(state.startDate, today));
-    const { streak, completedDays } = K.computeStreak(state.records, state.startDate, today);
-    const compliance = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+    const { streak } = K.computeStreak(state.records, state.startDate, today);
+    const totalDays = Math.max(0, K.daysBetween(state.startDate, today)) + 1;
     const habitMap = Object.fromEntries(HABITS.map(h => [h.id, h]));
+
+    // Weight history: every record with a numeric weight, sorted oldest-first
+    // so we can compute day-over-day deltas, then reversed for display
+    // (most recent at the top).
+    const weighIns = state.records
+      .filter(r => typeof r.weight === 'number' && !isNaN(r.weight))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const weightRows = weighIns.map((r, i) => ({
+      date: r.date,
+      weight: r.weight,
+      delta: i > 0 ? +(r.weight - weighIns[i - 1].weight).toFixed(1) : null,
+    })).reverse();
 
     const view = document.getElementById('view-history');
     view.innerHTML = `
@@ -384,24 +381,21 @@
         <div class="section-overline">SECTION 04</div>
         <div class="section-headline">HIS<span class="dot">·</span>TORY</div>
       </div>
-      <div class="stat-row">
+      <div class="stat-row two">
         <div class="stat accent">
           <div class="n">${breaks.length}</div>
           <div class="lbl">BREAKS</div>
         </div>
         <div class="stat">
-          <div class="n">${completedDays}</div>
-          <div class="lbl">PERFECT DAYS</div>
-        </div>
-        <div class="stat small">
-          <div class="n">${compliance}%</div>
-          <div class="lbl">COMPLIANCE</div>
+          <div class="n">${totalDays}</div>
+          <div class="lbl">DAYS</div>
         </div>
       </div>
       <div class="current-chain">
         <span class="lbl">CURRENT CHAIN</span>
         <span class="day-n">DAY ${streak}</span>
       </div>
+
       <div class="break-list">
         ${breaks.length === 0 ? `
           <div class="empty-history">
@@ -431,11 +425,40 @@
               </div>
             `;
           }).join('')}
-          <div class="ledger-callout">
-            <div class="tag">// THE LEDGER</div>
-            Every break is a lesson, not a verdict. The chain is not the point. The work is.
-          </div>
         `}
+      </div>
+
+      ${weightRows.length === 0 ? '' : `
+        <div class="weight-section">
+          <div class="weight-overline">WEIGHT</div>
+          ${weightRows.map(w => {
+            const dt = K.parseISO(w.date);
+            const md = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+            const yr = String(dt.getFullYear()).slice(2);
+            let deltaHTML = '';
+            if (w.delta !== null) {
+              const sign = w.delta > 0 ? '+' : (w.delta < 0 ? '' : '±');
+              const cls = w.delta > 0 ? 'up' : (w.delta < 0 ? 'down' : 'flat');
+              deltaHTML = `<span class="weight-delta ${cls}">${sign}${w.delta.toFixed(1)}</span>`;
+            } else {
+              deltaHTML = `<span class="weight-delta first">START</span>`;
+            }
+            return `
+              <div class="weight-row">
+                <div class="weight-date">${md} <span class="yr">'${yr}</span></div>
+                <div class="weight-num">${w.weight.toFixed(1)}</div>
+                ${deltaHTML}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+
+      <div class="ledger-callout">
+        <div class="tag">// THE LEDGER</div>
+        ${breaks.length === 0
+          ? 'Show up daily-ish. The chain rewards consistency, not perfection.'
+          : 'Every break is a lesson, not a verdict. The chain is not the point. The work is.'}
       </div>
     `;
   }

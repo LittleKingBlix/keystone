@@ -23,6 +23,11 @@ html, body {
   font-family: 'Archivo', 'Inter Tight', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* Stop iOS rubber-band/overscroll pull-to-refresh on the masthead */
+  overscroll-behavior: none;
+  /* Disable double-tap-to-zoom on tap targets while keeping pinch in
+     the browser's hands. user-scalable=no in viewport handles pinch. */
+  touch-action: manipulation;
 }
 
 body {
@@ -403,8 +408,6 @@ body {
 .day-cell.future { opacity: 0.35; cursor: default; }
 .day-cell.before-start { opacity: 0.25; cursor: default; }
 
-.day-cell.complete { background: var(--ink); }
-
 .day-num {
   position: absolute;
   top: 4px;
@@ -416,8 +419,6 @@ body {
   line-height: 1;
   color: var(--ink);
 }
-
-.day-cell.complete .day-num { color: var(--red); }
 
 .day-bars {
   position: absolute;
@@ -480,6 +481,8 @@ body {
   grid-template-columns: 1fr 1fr 1fr;
   border-bottom: 2px solid var(--ink);
 }
+
+.stat-row.two { grid-template-columns: 1fr 1fr; }
 
 .stat {
   padding: 14px 12px;
@@ -641,6 +644,71 @@ body {
   color: var(--red);
   margin-bottom: 6px;
 }
+
+/* Weight history list */
+
+.weight-section {
+  border-top: 2px solid var(--ink);
+  margin-top: 8px;
+}
+
+.weight-overline {
+  padding: 14px 22px 6px;
+  font-family: 'Archivo', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  column-gap: 14px;
+  padding: 10px 22px;
+  border-top: 1px solid rgba(10, 10, 10, 0.13);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.weight-row:first-of-type { border-top: 1.5px solid var(--ink); }
+
+.weight-date {
+  font-family: 'Archivo', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+
+.weight-date .yr {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.weight-num {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.weight-delta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 56px;
+  text-align: right;
+}
+
+.weight-delta.up    { color: var(--red); }
+.weight-delta.down  { color: var(--blue); }
+.weight-delta.flat  { color: var(--ink-soft); }
+.weight-delta.first { color: var(--ink-soft); font-size: 10px; letter-spacing: 0.18em; }
 
 /* ============================================================
    SETTINGS VIEW

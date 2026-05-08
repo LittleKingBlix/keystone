@@ -58,20 +58,24 @@ function completeCount(record) {
 }
 
 // THE STREAK RULE
-// "If the same habit is missed on two consecutive days, the streak resets
-//  to zero. Different habits missed on consecutive days are forgiven.
-//  Today is in progress and never counts as a miss."
+// "If the same habit is missed on two consecutive days, the chain resets.
+//  Different habits missed on consecutive days are forgiven. Today is in
+//  progress and never counts against you."
+//
+// The streak is the count of days since the chain last broke (or since
+// startDate if it never broke), counting today as Day N. This is NOT a
+// 'perfect days' counter — the philosophy is baseline consistency, not
+// perfection. A day with 5 of 8 done still keeps the chain alive (as long
+// as the same habit isn't missed two days running).
 function computeStreak(records, startDate, today) {
-  let streak = 0;
-  let lastResetDate = startDate;
-  let completedDays = 0;
-  let prevMissed = new Set();
-
   if (daysBetween(startDate, today) < 0) {
-    return { streak: 0, lastResetDate: startDate, completedDays: 0 };
+    return { streak: 0, lastResetDate: startDate };
   }
 
+  let lastResetDate = null;
+  let prevMissed = new Set();
   let cursor = startDate;
+
   while (cursor !== today) {
     const rec = recordFor(records, cursor);
     const missed = new Set();
@@ -83,21 +87,20 @@ function computeStreak(records, startDate, today) {
     for (const id of missed) {
       if (prevMissed.has(id)) { consecutiveSame = true; break; }
     }
-
-    if (consecutiveSame) {
-      streak = 0;
-      lastResetDate = cursor;
-    } else if (missed.size === 0) {
-      streak += 1;
-      completedDays += 1;
-    }
+    if (consecutiveSame) lastResetDate = cursor;
 
     prevMissed = missed;
     cursor = addDays(cursor, 1);
     if (daysBetween(startDate, cursor) > 3650) break;
   }
 
-  return { streak, lastResetDate, completedDays };
+  // streakStart = day after last reset, or startDate if no reset
+  const streakStart = lastResetDate ? addDays(lastResetDate, 1) : startDate;
+  if (daysBetween(streakStart, today) < 0) {
+    return { streak: 0, lastResetDate: lastResetDate || startDate };
+  }
+  const streak = daysBetween(streakStart, today) + 1;
+  return { streak, lastResetDate: lastResetDate || startDate };
 }
 
 // List every chain reset between startDate and today.
