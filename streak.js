@@ -9,14 +9,14 @@
 
 // THE 8 KEYSTONE HABITS, order matters (same order across all UI).
 const HABITS = [
-  { id: 'read',      label: 'Read 10 pages',    short: 'Read' },
   { id: 'weigh',     label: 'Weigh in',         short: 'Weight' },
-  { id: 'water',     label: '64oz water',       short: 'Water' },
-  { id: 'workout',   label: '45 min workout',   short: 'Workout' },
-  { id: 'meal',      label: 'Compliant meal',   short: 'Meal' },
+  { id: 'read',      label: 'Read 10 pages',    short: 'Read' },
   { id: 'visualize', label: 'Visualization',    short: 'Visualize' },
-  { id: 'social',    label: 'Social food only', short: 'Social' },
   { id: 'cold',      label: 'Cold shower',      short: 'Cold' },
+  { id: 'meal',      label: 'Compliant meal',   short: 'Meal' },
+  { id: 'workout',   label: '45 min workout',   short: 'Workout' },
+  { id: 'water',     label: '64oz water',       short: 'Water' },
+  { id: 'social',    label: 'Social food only', short: 'Social' },
 ];
 
 // Date helpers
